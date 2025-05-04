@@ -25,28 +25,32 @@ export function AuthProvider({ children }) {
   const checkAuthStatus = useCallback(() => {
     setLoading(true)
     const token = localStorage.getItem('token')
+    console.log('checkAuthStatus token:', token)
     
-    if (token) {
-      try {
-        // Decode token to get user info
-        const decoded = jwtDecode(token)
-        const currentTime = Date.now() / 1000
-        
-        // Check if token is expired
-        if (decoded.exp && decoded.exp < currentTime) {
+      if (token) {
+        try {
+          // Decode token to get user info
+          const decoded = jwtDecode(token)
+          const currentTime = Date.now() / 1000
+
+          // Check if token is expired
+          if (decoded.exp && decoded.exp < currentTime) {
+            localStorage.removeItem('token')
+            setUser(null)
+          } else {
+            setUser({ 
+              id: decoded.sub || decoded.id || decoded.user_id,
+              role: decoded.role || 'CLIENT'
+            })
+          }
+        } catch (err) {
+          console.error('Invalid token', err)
           localStorage.removeItem('token')
           setUser(null)
-        } else {
-          setUser({ id: decoded.sub || decoded.id || decoded.user_id })
         }
-      } catch (err) {
-        console.error('Invalid token', err)
-        localStorage.removeItem('token')
+      } else {
         setUser(null)
       }
-    } else {
-      setUser(null)
-    }
     
     setLoading(false)
   }, [])
@@ -57,15 +61,19 @@ export function AuthProvider({ children }) {
     setError(null)
     
     try {
-      const response = await authService.login(email, password)
+      const response = await authService.login({ email, password })
       const { access_token } = response
+      console.log('login received access_token:', access_token)
       
       // Save token to localStorage
       localStorage.setItem('token', access_token)
       
-      // Decode token to get user info
+      // Decode token to get user info including role
       const decoded = jwtDecode(access_token)
-      setUser({ id: decoded.sub || decoded.id || decoded.user_id })
+      setUser({ 
+        id: decoded.sub || decoded.id || decoded.user_id,
+        role: decoded.role || 'CLIENT'
+      })
       
       navigate('/dashboard')
       return true
@@ -78,12 +86,14 @@ export function AuthProvider({ children }) {
   }, [navigate])
   
   // Register function
-  const register = useCallback(async (email, password, role = 'client') => {
+  const register = useCallback(async (email, password, first_name, last_name, role = 'CLIENT') => {
     setLoading(true)
     setError(null)
     
     try {
-      await authService.register(email, password, role)
+      // Ensure role is uppercase to match backend enum
+      const roleUpper = role.toUpperCase()
+      await authService.register({ email, password, first_name, last_name, role: roleUpper })
       
       // Auto login after successful registration
       return await login(email, password)
