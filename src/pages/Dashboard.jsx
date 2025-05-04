@@ -18,21 +18,9 @@ function Dashboard() {
         setLoading(true)
         
         // Note: In a real app, you would fetch from a user-specific endpoint
-        // For this demo, we're just fetching spaces and using them as "bookings"
-        const spaces = await spacesService.getSpaces(1, 3)
-        
-        // Create mock bookings from spaces data for demonstration
-        const mockBookings = spaces.map(space => ({
-          id: space.id,
-          space_id: space.id,
-          space_name: space.name,
-          start_time: new Date(Date.now() + 86400000).toISOString(),
-          end_time: new Date(Date.now() + 93600000).toISOString(),
-          total_cost: space.price_per_hour * 2,
-          status: 'confirmed'
-        }))
-        
-        setRecentBookings(mockBookings)
+        // For this demo, we're fetching real bookings from the backend
+        const bookings = await bookingsService.getBookings()
+        setRecentBookings(bookings)
       } catch (err) {
         setError('Failed to load dashboard data')
         console.error(err)
@@ -204,7 +192,7 @@ function Dashboard() {
                 </div>
                 <div className="account-info-row">
                   <span className="info-label">Account Type:</span>
-                  <span className="info-value">Client</span>
+                  <span className="info-value">{user?.role === 'SPACE_OWNER' ? 'Space Owner' : 'Client'}</span>
                 </div>
                 <div className="account-info-row">
                   <span className="info-label">Member Since:</span>

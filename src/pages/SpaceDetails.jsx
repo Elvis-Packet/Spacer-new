@@ -32,6 +32,10 @@ function SpaceDetails() {
       try {
         setLoading(true)
         const data = await spacesService.getSpaceById(id)
+        // Defensive: ensure images array exists
+        if (!data.images) {
+          data.images = []
+        }
         setSpace(data)
       } catch (err) {
         setError('Failed to fetch space details')
@@ -43,6 +47,24 @@ function SpaceDetails() {
     
     fetchSpaceDetails()
   }, [id])
+  
+  // Add useEffect to refresh space details after image upload or other changes
+  useEffect(() => {
+    if (space) {
+      const interval = setInterval(async () => {
+        try {
+          const updatedSpace = await spacesService.getSpaceById(id)
+          if (JSON.stringify(updatedSpace.images) !== JSON.stringify(space.images)) {
+            setSpace(updatedSpace)
+          }
+        } catch (err) {
+          console.error('Failed to refresh space images:', err)
+        }
+      }, 5000) // Refresh every 5 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [space, id])
   
   // Calculate total hours and cost when dates change
   useEffect(() => {
@@ -73,10 +95,10 @@ function SpaceDetails() {
       navigate('/login')
       return
     }
-    
+
     setBookingError(null)
     setIsBooking(true)
-    
+
     try {
       // Prepare booking data
       const bookingData = {
@@ -85,18 +107,37 @@ function SpaceDetails() {
         end_time: endDate.toISOString(),
         phone_number: phoneNumber // For M-Pesa payment
       }
-      
+
       // Call booking service
       const response = await bookingsService.createBooking(bookingData)
       setBookingSuccess(true)
       console.log('Booking response:', response)
-      
+
       // In a real app, handle payment response and redirect to payment status page
     } catch (err) {
       setBookingError(err.message || 'Failed to book space')
       console.error(err)
     } finally {
       setIsBooking(false)
+    }
+  }
+
+  const handleImageUpload = async (event) => {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+    const file = event.target.files[0]
+    if (!file) return
+
+    try {
+      // Use updated spacesService to upload image
+      await spacesService.uploadSpaceImage(parseInt(id), file, true)
+      // Refresh space details to show new image
+      const updatedSpace = await spacesService.getSpaceById(id)
+      setSpace(updatedSpace)
+    } catch (error) {
+      console.error('Image upload failed:', error)
     }
   }
   
@@ -130,10 +171,17 @@ function SpaceDetails() {
           transition={{ duration: 0.5 }}
         >
           <div className="space-details-image">
-            <img 
-              src={`https://images.pexels.com/photos/${1000 + parseInt(id)}/pexels-photo-${1000 + parseInt(id)}.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2`} 
-              alt={space.name} 
-            />
+            {space.images && space.images.length > 0 ? (
+              <img
+                src={space.images[0].url}
+                alt={space.name}
+              />
+            ) : (
+              <img 
+                src={`https://images.pexels.com/photos/${1000 + parseInt(id)}/pexels-photo-${1000 + parseInt(id)}.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2`} 
+                alt={space.name} 
+              />
+            )}
             <div className="space-status">{space.status}</div>
           </div>
           
@@ -142,21 +190,32 @@ function SpaceDetails() {
               <h1 className="space-name">{space.name}</h1>
               <div className="space-price">${space.price_per_hour}/hour</div>
             </div>
-            
+
             <div className="space-details-description">
               <p>This beautiful space is perfect for your needs. Spacious, well-lit, and conveniently located.</p>
               <p>Book now to secure your spot!</p>
             </div>
-            
-            {space.status === 'available' && (
+
+            <div className="form-group">
+              <label htmlFor="imageUpload" className="form-label">Upload Image</label>
+              <input
+                type="file"
+                id="imageUpload"
+                className="form-input"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </div>
+
+            {space.status === 'AVAILABLE' && (
               <div className="booking-form">
                 <h2 className="booking-form-title">Book This Space</h2>
-                
+
                 {bookingSuccess ? (
                   <div className="booking-success">
                     <h3>Booking Successful!</h3>
                     <p>Your booking has been confirmed. Check your email for details.</p>
-                    <button 
+                    <button
                       className="btn btn-primary"
                       onClick={() => navigate('/bookings')}
                     >
@@ -170,7 +229,7 @@ function SpaceDetails() {
                         {bookingError}
                       </div>
                     )}
-                    
+
                     <div className="form-group">
                       <label htmlFor="startDate" className="form-label">Start Date & Time</label>
                       <DatePicker
@@ -185,7 +244,7 @@ function SpaceDetails() {
                         className="form-input"
                       />
                     </div>
-                    
+
                     <div className="form-group">
                       <label htmlFor="endDate" className="form-label">End Date & Time</label>
                       <DatePicker
@@ -200,7 +259,7 @@ function SpaceDetails() {
                         className="form-input"
                       />
                     </div>
-                    
+
                     <div className="form-group">
                       <label htmlFor="phoneNumber" className="form-label">Phone Number (for payment)</label>
                       <input
@@ -212,7 +271,7 @@ function SpaceDetails() {
                         placeholder="Enter phone number e.g. 254712345678"
                       />
                     </div>
-                    
+
                     <div className="booking-summary">
                       <div className="summary-row">
                         <span>Total Hours:</span>
@@ -223,8 +282,8 @@ function SpaceDetails() {
                         <span>${totalCost.toFixed(2)}</span>
                       </div>
                     </div>
-                    
-                    <button 
+
+                    <button
                       className={`btn btn-primary btn-block ${isBooking ? 'btn-disabled' : ''}`}
                       onClick={handleBookSpace}
                       disabled={isBooking || !phoneNumber}
@@ -235,11 +294,11 @@ function SpaceDetails() {
                 )}
               </div>
             )}
-            
-            {space.status !== 'available' && (
+
+            {space.status !== 'AVAILABLE' && (
               <div className="space-unavailable">
                 <p>This space is currently unavailable for booking.</p>
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => navigate('/spaces')}
                 >

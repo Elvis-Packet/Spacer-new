@@ -8,6 +8,9 @@ function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [role, setRole] = useState('CLIENT')
   const [formErrors, setFormErrors] = useState({})
   const { register, loading, error, isAuthenticated, clearError } = useAuth()
   
@@ -18,6 +21,14 @@ function Register() {
   
   const validateForm = () => {
     const errors = {}
+    
+    if (!firstName.trim()) {
+      errors.firstName = 'First name is required'
+    }
+    
+    if (!lastName.trim()) {
+      errors.lastName = 'Last name is required'
+    }
     
     if (!email.trim()) {
       errors.email = 'Email is required'
@@ -46,7 +57,7 @@ function Register() {
     clearError()
     
     if (validateForm()) {
-      await register(email, password)
+      await register(email, password, firstName, lastName, role)
     }
   }
   
@@ -69,6 +80,49 @@ function Register() {
           )}
           
           <form className="auth-form" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="firstName" className="form-label">First Name</label>
+              <input
+                type="text"
+                id="firstName"
+                className={`form-input ${formErrors.firstName ? 'error' : ''}`}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Enter your first name"
+              />
+              {formErrors.firstName && (
+                <span className="form-error">{formErrors.firstName}</span>
+              )}
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="lastName" className="form-label">Last Name</label>
+              <input
+                type="text"
+                id="lastName"
+                className={`form-input ${formErrors.lastName ? 'error' : ''}`}
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Enter your last name"
+              />
+              {formErrors.lastName && (
+                <span className="form-error">{formErrors.lastName}</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="role" className="form-label">Role</label>
+              <select
+                id="role"
+                className="form-select"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              >
+                <option value="CLIENT">Client</option>
+                <option value="SPACE_OWNER">Space Owner</option>
+              </select>
+            </div>
+            
             <div className="form-group">
               <label htmlFor="email" className="form-label">Email</label>
               <input
